@@ -23,7 +23,7 @@ CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 	hr = m_gb.CoCreateInstance(CLSID_FilterGraph);
 
 	//int res = AFIDInitialize(TEXT("C:\\Program Files (x86)\\Ayonix\\FaceID\\data\\engine"), &m_engine);
-	int res = AFIDInitialize(TEXT("engine"), &m_engine);
+	int res = AFIDInitialize(TEXT("data\\engine"), &m_engine);
 	wchar_t msg[128] = { 0 };
 	_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDInitialize res[%d]\r\n", res);
 	OutputDebugString(msg);
@@ -125,12 +125,13 @@ BOOL CDetectionDlg::OnInitDialog()
 	hr = win->put_Owner((OAHWND)m_video.m_hWnd);
 	hr = win->put_WindowStyle(WS_CHILD);
 
-	//GetClientRect(ghwndApp, &rc);
+	CRect rc;
+	m_video.GetClientRect(&rc);
 	//cyBorder = GetSystemMetrics(SM_CYBORDER);
 	//cy = 150 + cyBorder;
 	//rc.bottom -= cy;
 
-	hr = win->SetWindowPosition(0, 0, 400, 300);
+	hr = win->SetWindowPosition(0, 0, rc.Width(), rc.Height());
 	hr = win->put_Visible(-1);
 
 	// çƒê∂äJén
@@ -233,22 +234,16 @@ void CDetectionDlg::OnIdle()
 	CRect rect;
 	GetWindowRect(&rect);
 	//GetClientRect(&rect);
-	ClientToScreen(&rect);
-	//ScreenToClient(&rect);
-	wchar_t msg[128] = { 0 };
-	_snwprintf_s<128>(msg, _TRUNCATE, L"top[%d] left[%d] right[%d] bottom[%d]\r\n", rect.top, rect.left, rect.right, rect.bottom);
-	OutputDebugString(msg);
-	//m_dlg.ScreenToClient(&rect);
 	//ClientToScreen(&rect);
+	//ScreenToClient(&rect);
 	m_dlg.ShowWindow(SW_SHOW);
-	//m_dlg.SetWindowPos(NULL, rect.right, rect.top, 0, 0, SWP_NOSIZE);
+	m_dlg.SetWindowPos(NULL, rect.right - 10, rect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 }
 
 LRESULT CDetectionDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
-	if (message == WM_IDEL) {
+	if (message == WM_IDEL)
 		OnIdle();
-	}
 
 	return __super::WindowProc(message, wParam, lParam);
 }
