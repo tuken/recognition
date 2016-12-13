@@ -1,7 +1,7 @@
 #pragma once
 #include "afxwin.h"
 #include "qedit.h"
-#include <combaseapi.h>
+#include <atlbase.h>
 
 class CDetectionDlg : public CDialogEx, ISampleGrabberCB
 {
@@ -49,6 +49,7 @@ protected:
 
 protected:
 	HICON m_hIcon;
+	CComPtr<IGraphBuilder> m_gb;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();

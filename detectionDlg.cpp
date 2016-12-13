@@ -12,6 +12,10 @@ CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 : CDialogEx(CDetectionDlg::IDD, pParent)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+
+	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+	hr = m_gb.CoCreateInstance(CLSID_FilterGraph);
 }
 
 void CDetectionDlg::DoDataExchange(CDataExchange* pDX)
@@ -32,17 +36,14 @@ BOOL CDetectionDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);
 	SetIcon(m_hIcon, FALSE);
 
-	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-
-	IBaseFilter *pSampleGrabberFilter;
-	ISampleGrabber *pSampleGrabber;
 	AM_MEDIA_TYPE am_media_type;
 
 	// SampleGrabber(Filter)を生成
-	hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC, IID_IBaseFilter, (LPVOID *)&pSampleGrabberFilter);
+	CComPtr<ISampleGrabber> grabber;
+	HRESULT hr = grabber.CoCreateInstance(CLSID_SampleGrabber);
 
 	// FilterからISampleGrabberインターフェースを取得します
-	pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (LPVOID *)&pSampleGrabber);
+	CComQIPtr<IBaseFilter> grbFilter = grabber;
 
 	// SampleGrabberを接続するフォーマットを指定。
 	// ここがポイントです。
@@ -53,81 +54,75 @@ BOOL CDetectionDlg::OnInitDialog()
 	am_media_type.majortype = MEDIATYPE_Video;
 	am_media_type.subtype = MEDIASUBTYPE_RGB24;
 	am_media_type.formattype = FORMAT_VideoInfo;
-	pSampleGrabber->SetMediaType(&am_media_type);
-
-	IGraphBuilder *pGraphBuilder = NULL;
-	hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC, IID_IGraphBuilder, (LPVOID *)&pGraphBuilder);
+	hr = grabber->SetMediaType(&am_media_type);
 
 	// GraphにSampleGrabber Filterを追加
-	pGraphBuilder->AddFilter(pSampleGrabberFilter, L"Sample Grabber");
+	hr = m_gb->AddFilter(grbFilter, L"Sample Grabber");
 
 	// CaptureGraphBuilder2というキャプチャ用GraphBuilderを生成する
-	ICaptureGraphBuilder2 *pCaptureGraphBuilder2 = NULL;
-	hr = CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC, IID_ICaptureGraphBuilder2, (LPVOID *)&pCaptureGraphBuilder2);
+	CComPtr<ICaptureGraphBuilder2> capgb;
+	hr = capgb.CoCreateInstance(CLSID_CaptureGraphBuilder2);
 
 	// FilterGraphをセットする
-	pCaptureGraphBuilder2->SetFiltergraph(pGraphBuilder);
+	capgb->SetFiltergraph(m_gb);
 
 	// MediaControlインターフェース取得
-	IMediaControl *pMediaControl = NULL;
-	pGraphBuilder->QueryInterface(IID_IMediaControl, (LPVOID *)&pMediaControl);
+	CComQIPtr<IMediaControl> ctrl = m_gb;
 
 	// デバイスを列挙するためのCreateDevEnumを生成
-	ICreateDevEnum *pCreateDevEnum = NULL;
-	CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_ICreateDevEnum, (PVOID *)&pCreateDevEnum);
+	CComPtr<ICreateDevEnum> devs;
+	hr = devs.CoCreateInstance(CLSID_SystemDeviceEnum);
 
 	// VideoInputDeviceを列挙するためのEnumMonikerを生成 
-	IEnumMoniker *pEnumMoniker = NULL;
-	pCreateDevEnum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &pEnumMoniker, 0);
-	if (pEnumMoniker == NULL) {
+	CComPtr<IEnumMoniker> mons;
+	devs->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &mons, 0);
+	if (!mons) {
 		// 接続された映像入力デバイスが一つも無い場合にはこのif文に入ります
-		printf("no device\n");
-		return 0;
+		MessageBox(L"カメラが見つかりません。");
+		return TRUE;
 	}
 
 	// EnumMonikerをResetする
 	// Resetすると、先頭から数えなおします
-	pEnumMoniker->Reset();
+	mons->Reset();
 
 	// 最初のMonikerを取得
-	IMoniker *pMoniker = NULL;
+	CComPtr<IMoniker> moniker;
 	ULONG nFetched = 0;
-	pEnumMoniker->Next(1, &pMoniker, &nFetched);
+	mons->Next(1, &moniker, &nFetched);
 
 	// MonkierをFilterにBindする
-	IBaseFilter *pDeviceFilter = NULL;
-	pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void **)&pDeviceFilter);
+	CComPtr<IBaseFilter> devFilter;
+	moniker->BindToObject(0, 0, IID_IBaseFilter, (void **)&devFilter);
 
 	// FilterGraphにデバイスフィルタを追加する
-	pGraphBuilder->AddFilter(pDeviceFilter, L"Device Filter");
+	m_gb->AddFilter(devFilter, L"Device Filter");
 
-	// この時点でMonkier系、Enumerator系は用済み
-	pMoniker->Release();
-	pEnumMoniker->Release();
-	pCreateDevEnum->Release();
+	CComPtr<IBaseFilter> rndFilter;
+	hr = rndFilter.CoCreateInstance(CLSID_VideoRenderer);
+
+	m_gb->AddFilter(rndFilter, L"Video Renderer");
 
 	// Graphを生成する
-	hr = pCaptureGraphBuilder2->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, pDeviceFilter, pSampleGrabberFilter, NULL);
-	pSampleGrabber->GetConnectedMediaType(&am_media_type);
-	pSampleGrabber->SetBufferSamples(TRUE);
-	pSampleGrabber->SetCallback(this, 1);
+	hr = capgb->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, devFilter, grbFilter, rndFilter);
+	grabber->GetConnectedMediaType(&am_media_type);
+	grabber->SetBufferSamples(TRUE);
+	grabber->SetCallback(this, 1);
 
-	IVideoWindow *pVideoWin = NULL;
-	hr = pGraphBuilder->QueryInterface(IID_IVideoWindow, (void **)&pVideoWin);
-
-	pVideoWin->put_Owner((OAHWND)_video.m_hWnd);
-	pVideoWin->put_WindowStyle(WS_CHILD);
+	CComQIPtr<IVideoWindow> win = rndFilter;
+	win->put_Owner((OAHWND)_video.m_hWnd);
+	win->put_WindowStyle(WS_CHILD);
 
 	//GetClientRect(ghwndApp, &rc);
 	//cyBorder = GetSystemMetrics(SM_CYBORDER);
 	//cy = 150 + cyBorder;
 	//rc.bottom -= cy;
 
-	pVideoWin->SetWindowPosition(0, 0, 400, 300);
-	pVideoWin->put_Visible(-1);
+	win->SetWindowPosition(0, 0, 400, 300);
+	win->put_Visible(-1);
 
 	// 再生開始
-	pMediaControl->Run();
+	ctrl->Run();
 
 	//// 資源を解放
 	//pMediaControl->Release();
