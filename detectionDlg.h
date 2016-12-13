@@ -39,23 +39,23 @@ public:
 	STDMETHODIMP CDetectionDlg::SampleCB(double, IMediaSample*);
 	STDMETHODIMP CDetectionDlg::BufferCB(double, BYTE*, long);
 
+	afx_msg void OnClose();
+
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);
 
-	//int CountAllDevices();
-	//void StartThisDevice(IMoniker *pmVideo);
-	//BOOL StartPreview();
-	//BOOL StopPreview();
-
-protected:
 	HICON m_hIcon;
+	CStatic m_video;
+
 	CComPtr<IGraphBuilder> m_gb;
+	AM_MEDIA_TYPE m_mt;
+
+	void *m_engine;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 
-public:
-	CStatic _video;
+	ULONGLONG m_shot;
 };
