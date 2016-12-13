@@ -105,6 +105,7 @@
   <ItemGroup>
     <ClInclude Include="detection.h" />
     <ClInclude Include="detectionDlg.h" />
+    <ClInclude Include="infoDlg.h" />
     <ClInclude Include="qedit.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
@@ -113,6 +114,7 @@
   <ItemGroup>
     <ClCompile Include="detection.cpp" />
     <ClCompile Include="detectionDlg.cpp" />
+    <ClCompile Include="infoDlg.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
