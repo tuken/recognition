@@ -9,9 +9,12 @@
 #define new DEBUG_NEW
 #endif
 
+#define WM_IDEL (WM_USER + 1)
+
 CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 : CDialogEx(CDetectionDlg::IDD, pParent)
 , m_shot(0)
+, m_once(false)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 
@@ -26,6 +29,8 @@ CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 	OutputDebugString(msg);
 
 	memset(&m_mt, 0, sizeof(m_mt));
+
+	m_dlg.Create(IDD_INFO_DIALOG, this);
 }
 
 void CDetectionDlg::DoDataExchange(CDataExchange* pDX)
@@ -38,6 +43,7 @@ BEGIN_MESSAGE_MAP(CDetectionDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_CLOSE()
+	ON_WM_SHOWWINDOW()
 END_MESSAGE_MAP()
 
 BOOL CDetectionDlg::OnInitDialog()
@@ -214,8 +220,45 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 
 void CDetectionDlg::OnClose()
 {
+	m_dlg.DestroyWindow();
+
 	CComQIPtr<IMediaControl> ctrl = m_gb;
 	ctrl->Stop();
 
 	__super::OnClose();
+}
+
+void CDetectionDlg::OnIdle()
+{
+	CRect rect;
+	GetWindowRect(&rect);
+	//GetClientRect(&rect);
+	ClientToScreen(&rect);
+	//ScreenToClient(&rect);
+	wchar_t msg[128] = { 0 };
+	_snwprintf_s<128>(msg, _TRUNCATE, L"top[%d] left[%d] right[%d] bottom[%d]\r\n", rect.top, rect.left, rect.right, rect.bottom);
+	OutputDebugString(msg);
+	//m_dlg.ScreenToClient(&rect);
+	//ClientToScreen(&rect);
+	m_dlg.ShowWindow(SW_SHOW);
+	//m_dlg.SetWindowPos(NULL, rect.right, rect.top, 0, 0, SWP_NOSIZE);
+}
+
+LRESULT CDetectionDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
+{
+	if (message == WM_IDEL) {
+		OnIdle();
+	}
+
+	return __super::WindowProc(message, wParam, lParam);
+}
+
+void CDetectionDlg::OnShowWindow(BOOL bShow, UINT nStatus)
+{
+	__super::OnShowWindow(bShow, nStatus);
+
+	if (bShow && !m_once) {
+		m_once = true;
+		PostMessage(WM_IDEL, MAKEWPARAM(0, 0), NULL);
+	}
 }

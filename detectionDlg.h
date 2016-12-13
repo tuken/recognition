@@ -2,6 +2,7 @@
 #include "afxwin.h"
 #include "qedit.h"
 #include <atlbase.h>
+#include "infoDlg.h"
 
 class CDetectionDlg : public CDialogEx, ISampleGrabberCB
 {
@@ -46,6 +47,7 @@ protected:
 
 	HICON m_hIcon;
 	CStatic m_video;
+	CInfoDialog m_dlg;
 
 	CComPtr<IGraphBuilder> m_gb;
 	AM_MEDIA_TYPE m_mt;
@@ -57,5 +59,11 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 
+	void OnIdle();
+
+	bool m_once;
 	ULONGLONG m_shot;
+	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+public:
+	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
 };

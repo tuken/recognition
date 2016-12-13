@@ -10,6 +10,8 @@ public:
 
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);
+	virtual void OnCancel();
+	//virtual void PostNcDestroy();
 
 	DECLARE_MESSAGE_MAP()
 };

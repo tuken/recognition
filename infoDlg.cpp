@@ -21,3 +21,13 @@ void CInfoDialog::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CInfoDialog, CDialogEx)
 END_MESSAGE_MAP()
+
+void CInfoDialog::OnCancel()
+{
+	DestroyWindow();
+}
+
+//void CInfoDialog::PostNcDestroy()
+//{
+//	delete this;
+//}
