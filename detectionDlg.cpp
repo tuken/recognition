@@ -2,7 +2,6 @@
 #include "detection.h"
 #include "detectionDlg.h"
 #include "afxdialogex.h"
-#include <DShow.h>
 #include <initguid.h>
 
 #ifdef _DEBUG
@@ -34,8 +33,33 @@ BOOL CDetectionDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);
 
 	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+	IBaseFilter *pSampleGrabberFilter;
+	ISampleGrabber *pSampleGrabber;
+	AM_MEDIA_TYPE am_media_type;
+
+	// SampleGrabber(Filter)を生成
+	hr = CoCreateInstance(CLSID_SampleGrabber, NULL, CLSCTX_INPROC, IID_IBaseFilter, (LPVOID *)&pSampleGrabberFilter);
+
+	// FilterからISampleGrabberインターフェースを取得します
+	pSampleGrabberFilter->QueryInterface(IID_ISampleGrabber, (LPVOID *)&pSampleGrabber);
+
+	// SampleGrabberを接続するフォーマットを指定。
+	// ここがポイントです。
+	// ここの指定の仕方によりSampleGrabberの挿入箇所を
+	// 決定できます。このサンプルのような指定をすると
+	// 画面出力の寸前でサンプルを取得できます。
+	ZeroMemory(&am_media_type, sizeof(am_media_type));
+	am_media_type.majortype = MEDIATYPE_Video;
+	am_media_type.subtype = MEDIASUBTYPE_RGB24;
+	am_media_type.formattype = FORMAT_VideoInfo;
+	pSampleGrabber->SetMediaType(&am_media_type);
+
 	IGraphBuilder *pGraphBuilder = NULL;
 	hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC, IID_IGraphBuilder, (LPVOID *)&pGraphBuilder);
+
+	// GraphにSampleGrabber Filterを追加
+	pGraphBuilder->AddFilter(pSampleGrabberFilter, L"Sample Grabber");
 
 	// CaptureGraphBuilder2というキャプチャ用GraphBuilderを生成する
 	ICaptureGraphBuilder2 *pCaptureGraphBuilder2 = NULL;
@@ -83,7 +107,10 @@ BOOL CDetectionDlg::OnInitDialog()
 	pCreateDevEnum->Release();
 
 	// Graphを生成する
-	hr = pCaptureGraphBuilder2->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, pDeviceFilter, NULL, NULL);
+	hr = pCaptureGraphBuilder2->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, pDeviceFilter, pSampleGrabberFilter, NULL);
+	pSampleGrabber->GetConnectedMediaType(&am_media_type);
+	pSampleGrabber->SetBufferSamples(TRUE);
+	pSampleGrabber->SetCallback(this, 1);
 
 	IVideoWindow *pVideoWin = NULL;
 	hr = pGraphBuilder->QueryInterface(IID_IVideoWindow, (void **)&pVideoWin);
@@ -183,6 +210,22 @@ void CDetectionDlg::OnPaint()
 HCURSOR CDetectionDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
+}
+
+STDMETHODIMP CDetectionDlg::SampleCB(double SampleTime, IMediaSample *pSample)
+{
+	wchar_t msg[128] = { 0 };
+	_snwprintf_s<128>(msg, _TRUNCATE, L"SampleCB SampleTime[%.4f]\r\n", SampleTime);
+	OutputDebugString(msg);
+	return S_OK;
+}
+
+STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long BufferLen)
+{
+	wchar_t msg[128] = { 0 };
+	_snwprintf_s<128>(msg, _TRUNCATE, L"BufferCB SampleTime[%.4f] BufferLen[%d]\r\n", SampleTime, BufferLen);
+	OutputDebugString(msg);
+	return S_OK;
 }
 
 void IMonRelease(IMoniker *&pm)
