@@ -52,7 +52,7 @@ BOOL CDetectionDlg::OnInitDialog()
 		wchar_t msg[128] = { 0 };
 		_snwprintf_s<128>(msg, _TRUNCATE, L"Šç”F¯ƒ‰ƒCƒuƒ‰ƒŠ‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½ [%d]\r\n", res);
 		MessageBox(msg);
-		return TRUE;
+		//return TRUE;
 	}
 
 	// SampleGrabber(Filter)‚ğ¶¬
