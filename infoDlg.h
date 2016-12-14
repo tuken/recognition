@@ -13,9 +13,11 @@ public:
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 
 	void DetecttionCount(int count);
+	void SetCameraName(const wchar_t *name);
 
 	CStatic m_state;
 	CStatic m_count;
+	CStatic m_camera;
 
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);
@@ -23,4 +25,7 @@ protected:
 	//virtual void PostNcDestroy();
 
 	DECLARE_MESSAGE_MAP()
+
+	CFont m_font1;
+	CFont m_font2;
 };
