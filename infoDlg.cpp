@@ -67,6 +67,17 @@ void CInfoDialog::DetecttionCount(int count)
 	wchar_t strcount[32] = { 0 };
 	_snwprintf_s<32>(strcount, _TRUNCATE, L"%d êl", count);
 	m_count.SetWindowText(strcount);
+
+	CWinApp *app = AfxGetApp();
+	UINT empty = app->GetProfileInt(L"Threashold", L"empty", 2);
+	UINT crowd = app->GetProfileInt(L"Threashold", L"crowd", 5);
+
+	if (static_cast<UINT>(count) <= empty)
+		m_state.SetWindowText(L"ãÛ");
+	else if (static_cast<UINT>(count) >= crowd)
+		m_state.SetWindowText(L"ç¨éG");
+	else
+		m_state.SetWindowText(L"Ç‚Ç‚ç¨éG");
 }
 
 void CInfoDialog::SetCameraName(const wchar_t *name)
