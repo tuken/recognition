@@ -41,6 +41,7 @@ public:
 	STDMETHODIMP CDetectionDlg::BufferCB(double, BYTE*, long);
 
 	afx_msg void OnClose();
+	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
 
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);
@@ -53,6 +54,7 @@ protected:
 	AM_MEDIA_TYPE m_mt;
 
 	void *m_engine;
+	bool m_once;
 
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
@@ -61,9 +63,5 @@ protected:
 
 	void OnIdle();
 
-	bool m_once;
-	ULONGLONG m_shot;
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-public:
-	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
 };

@@ -13,7 +13,6 @@
 
 CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 : CDialogEx(CDetectionDlg::IDD, pParent)
-, m_shot(0)
 , m_once(false)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -21,12 +20,6 @@ CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	hr = m_gb.CoCreateInstance(CLSID_FilterGraph);
-
-	//int res = AFIDInitialize(TEXT("C:\\Program Files (x86)\\Ayonix\\FaceID\\data\\engine"), &m_engine);
-	int res = AFIDInitialize(TEXT("data\\engine"), &m_engine);
-	wchar_t msg[128] = { 0 };
-	_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDInitialize res[%d]\r\n", res);
-	OutputDebugString(msg);
 
 	memset(&m_mt, 0, sizeof(m_mt));
 
@@ -52,6 +45,15 @@ BOOL CDetectionDlg::OnInitDialog()
 
 	SetIcon(m_hIcon, TRUE);
 	SetIcon(m_hIcon, FALSE);
+
+	//int res = AFIDInitialize(TEXT("C:\\Program Files (x86)\\Ayonix\\FaceID\\data\\engine"), &m_engine);
+	int res = AFIDInitialize(TEXT("data\\engine"), &m_engine);
+	if (res != AYNX_OK) {
+		wchar_t msg[128] = { 0 };
+		_snwprintf_s<128>(msg, _TRUNCATE, L"顔認識ライブラリの初期化に失敗しました [%d]\r\n", res);
+		MessageBox(msg);
+		return TRUE;
+	}
 
 	// SampleGrabber(Filter)を生成
 	CComPtr<ISampleGrabber> grabber;
@@ -89,9 +91,9 @@ BOOL CDetectionDlg::OnInitDialog()
 	// VideoInputDeviceを列挙するためのEnumMonikerを生成 
 	CComPtr<IEnumMoniker> mons;
 	hr = devs->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &mons, 0);
-	if (!mons) {
+	if (FAILED(hr) || !mons) {
 		// 接続された映像入力デバイスが一つも無い場合にはこのif文に入ります
-		MessageBox(L"カメラが見つかりません。");
+		MessageBox(L"カメラが見つかりません");
 		return TRUE;
 	}
 
@@ -102,6 +104,18 @@ BOOL CDetectionDlg::OnInitDialog()
 	CComPtr<IMoniker> moniker;
 	ULONG nFetched = 0;
 	hr = mons->Next(1, &moniker, &nFetched);
+
+	CComPtr<IPropertyBag> prop;
+	hr = moniker->BindToStorage(0, 0, IID_IPropertyBag, (void **)&prop);
+	if (SUCCEEDED(hr)) {
+		VARIANT varName;
+		VariantInit(&varName);
+		hr = prop->Read(L"FriendlyName", &varName, 0);
+		if (SUCCEEDED(hr))
+			m_dlg.SetCameraName(varName.bstrVal);
+
+		VariantClear(&varName);
+	}
 
 	// MonkierをFilterにBindする
 	CComPtr<IBaseFilter> devFilter;
@@ -188,21 +202,26 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 	memcpy(buf + sizeof(bfh), &vif->bmiHeader, sizeof(BITMAPINFOHEADER));
 	memcpy(buf + sizeof(bfh) + sizeof(BITMAPINFOHEADER), pBuffer, BufferLen);
 
-	wchar_t msg[128] = { 0 };
+	//wchar_t msg[128] = { 0 };
 	AynxImage *img = NULL;
 	int res = AFIDDecodeImage(buf, sizeof(bfh) + sizeof(BITMAPINFOHEADER) + BufferLen, &img);
-	_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDecodeImage res[%d]\r\n", res);
-	OutputDebugString(msg);
+	//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDecodeImage res[%d]\r\n", res);
+	//OutputDebugString(msg);
 	if (res == AYNX_OK) {
 		AynxFace *faces = NULL;
 		size_t count = 0;
 		res = AFIDDetectFaces(m_engine, img, &faces, &count, NULL);
-		_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces res[%d]\r\n", res);
-		OutputDebugString(msg);
+		//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces res[%d]\r\n", res);
+		//OutputDebugString(msg);
 		if (res == AYNX_OK) {
-			_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces count[%d]\r\n", count);
-			OutputDebugString(msg);
+			m_dlg.DetecttionCount(count);
+			//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces count[%d]\r\n", count);
+			//OutputDebugString(msg);
+
+			AFIDReleaseFaces(faces, count);
 		}
+
+		AFIDReleaseImage(img);
 	}
 
 	free(buf);
@@ -214,8 +233,6 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 	//WriteFile(h, pBuffer, BufferLen, &nWritten, NULL);
 	//CloseHandle(h);
 
-	m_shot++;
-
 	return S_OK;
 }
 
@@ -225,6 +242,8 @@ void CDetectionDlg::OnClose()
 
 	CComQIPtr<IMediaControl> ctrl = m_gb;
 	ctrl->Stop();
+
+	AFIDFinalize(m_engine);
 
 	__super::OnClose();
 }
