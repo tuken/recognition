@@ -50,7 +50,6 @@ BOOL CInfoDialog::OnInitDialog()
 	return TRUE;
 }
 
-
 HBRUSH CInfoDialog::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
 	HBRUSH hbr = CDialogEx::OnCtlColor(pDC, pWnd, nCtlColor);

@@ -256,7 +256,7 @@ void CDetectionDlg::OnIdle()
 	//ClientToScreen(&rect);
 	//ScreenToClient(&rect);
 	m_dlg.ShowWindow(SW_SHOW);
-	m_dlg.SetWindowPos(NULL, rect.right - 10, rect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+	m_dlg.SetWindowPos(&CWnd::wndTopMost, rect.right, rect.top, 0, 0, SWP_NOSIZE);
 }
 
 LRESULT CDetectionDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
