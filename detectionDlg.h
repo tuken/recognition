@@ -51,6 +51,7 @@ protected:
 	CInfoDialog m_dlg;
 
 	CComPtr<IGraphBuilder> m_gb;
+	CComPtr<IEnumMoniker> m_mons;
 	AM_MEDIA_TYPE m_mt;
 
 	void *m_engine;
@@ -62,6 +63,9 @@ protected:
 	DECLARE_MESSAGE_MAP()
 
 	void OnIdle();
+	LRESULT OnSelectCamera(WPARAM wParam, LPARAM lParam);
 
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+public:
+	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
 };

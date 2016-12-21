@@ -11,13 +11,16 @@ public:
 
 	virtual BOOL OnInitDialog();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
+	afx_msg void OnLbnSelchangeLstCamera();
 
 	void DetecttionCount(int count);
-	void SetCameraName(const wchar_t *name);
+	//void SetCameraName(const wchar_t *name);
+	void SetCameraList(CComPtr<IEnumMoniker>& mons);
 
 	CStatic m_state;
 	CStatic m_count;
 	CStatic m_camera;
+	CListBox m_listCam;
 
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);

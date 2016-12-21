@@ -10,6 +10,7 @@
 #endif
 
 #define WM_IDEL (WM_USER + 1)
+#define WM_SELECT_CAMERA (WM_APP + 1)
 
 CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 : CDialogEx(CDetectionDlg::IDD, pParent)
@@ -37,6 +38,8 @@ BEGIN_MESSAGE_MAP(CDetectionDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_WM_CLOSE()
 	ON_WM_SHOWWINDOW()
+	ON_MESSAGE(WM_SELECT_CAMERA, OnSelectCamera)
+	ON_WM_ACTIVATE()
 END_MESSAGE_MAP()
 
 BOOL CDetectionDlg::OnInitDialog()
@@ -55,101 +58,19 @@ BOOL CDetectionDlg::OnInitDialog()
 		//return TRUE;
 	}
 
-	// SampleGrabber(Filter)を生成
-	CComPtr<ISampleGrabber> grabber;
-	HRESULT hr = grabber.CoCreateInstance(CLSID_SampleGrabber);
-
-	// FilterからISampleGrabberインターフェースを取得します
-	CComQIPtr<IBaseFilter> grbFilter = grabber;
-
-	// SampleGrabberを接続するフォーマットを指定。
-	// ここがポイントです。
-	// ここの指定の仕方によりSampleGrabberの挿入箇所を決定できます。このサンプルのような指定をすると
-	// 画面出力の寸前でサンプルを取得できます。
-	m_mt.majortype = MEDIATYPE_Video;
-	m_mt.subtype = MEDIASUBTYPE_RGB24;
-	m_mt.formattype = FORMAT_VideoInfo;
-	hr = grabber->SetMediaType(&m_mt);
-
-	// GraphにSampleGrabber Filterを追加
-	hr = m_gb->AddFilter(grbFilter, L"Sample Grabber");
-
-	// CaptureGraphBuilder2というキャプチャ用GraphBuilderを生成する
-	CComPtr<ICaptureGraphBuilder2> capgb;
-	hr = capgb.CoCreateInstance(CLSID_CaptureGraphBuilder2);
-
-	// FilterGraphをセットする
-	capgb->SetFiltergraph(m_gb);
-
-	// MediaControlインターフェース取得
-	CComQIPtr<IMediaControl> ctrl = m_gb;
-
 	// デバイスを列挙するためのCreateDevEnumを生成
 	CComPtr<ICreateDevEnum> devs;
-	hr = devs.CoCreateInstance(CLSID_SystemDeviceEnum);
+	HRESULT hr = devs.CoCreateInstance(CLSID_SystemDeviceEnum);
 
 	// VideoInputDeviceを列挙するためのEnumMonikerを生成 
-	CComPtr<IEnumMoniker> mons;
-	hr = devs->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &mons, 0);
-	if (FAILED(hr) || !mons) {
+	hr = devs->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &m_mons, 0);
+	if (FAILED(hr) || !m_mons) {
 		// 接続された映像入力デバイスが一つも無い場合にはこのif文に入ります
 		MessageBox(L"カメラが見つかりません");
 		return TRUE;
 	}
 
-	// EnumMonikerをResetする Resetすると、先頭から数えなおします
-	hr = mons->Reset();
-
-	// 最初のMonikerを取得
-	CComPtr<IMoniker> moniker;
-	ULONG nFetched = 0;
-	hr = mons->Next(1, &moniker, &nFetched);
-
-	CComPtr<IPropertyBag> prop;
-	hr = moniker->BindToStorage(0, 0, IID_IPropertyBag, (void **)&prop);
-	if (SUCCEEDED(hr)) {
-		VARIANT varName;
-		VariantInit(&varName);
-		hr = prop->Read(L"FriendlyName", &varName, 0);
-		if (SUCCEEDED(hr))
-			m_dlg.SetCameraName(varName.bstrVal);
-
-		VariantClear(&varName);
-	}
-
-	// MonkierをFilterにBindする
-	CComPtr<IBaseFilter> devFilter;
-	hr = moniker->BindToObject(0, 0, IID_IBaseFilter, (void **)&devFilter);
-
-	// FilterGraphにデバイスフィルタを追加する
-	hr = m_gb->AddFilter(devFilter, L"Device Filter");
-
-	CComPtr<IBaseFilter> rndFilter;
-	hr = rndFilter.CoCreateInstance(CLSID_VideoRenderer);
-
-	hr = m_gb->AddFilter(rndFilter, L"Video Renderer");
-
-	// Graphを生成する
-	hr = capgb->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, devFilter, grbFilter, rndFilter);
-	hr = grabber->GetConnectedMediaType(&m_mt);
-	hr = grabber->SetBufferSamples(TRUE);
-	hr = grabber->SetCallback(this, 1);
-
-	CComQIPtr<IVideoWindow> win = rndFilter;
-	hr = win->put_Owner((OAHWND)m_video.m_hWnd);
-	hr = win->put_WindowStyle(WS_CHILD);
-
-	CRect rc;
-	m_video.GetClientRect(&rc);
-	//cyBorder = GetSystemMetrics(SM_CYBORDER);
-	//cy = 150 + cyBorder;
-	//rc.bottom -= cy;
-
-	hr = win->SetWindowPosition(0, 0, rc.Width(), rc.Height());
-	hr = win->put_Visible(-1);
-
-	// 再生開始
-	ctrl->Run();
+	m_dlg.SetCameraList(m_mons);
 
 	return TRUE;
 }
@@ -256,7 +177,101 @@ void CDetectionDlg::OnIdle()
 	//ClientToScreen(&rect);
 	//ScreenToClient(&rect);
 	m_dlg.ShowWindow(SW_SHOW);
-	m_dlg.SetWindowPos(&CWnd::wndTopMost, rect.right, rect.top, 0, 0, SWP_NOSIZE);
+	m_dlg.SetWindowPos(this, rect.right, rect.top, 0, 0, SWP_NOSIZE);
+}
+
+LRESULT CDetectionDlg::OnSelectCamera(WPARAM wParam, LPARAM lParam)
+{
+	CComBSTR camname;
+	camname.Attach(reinterpret_cast<BSTR>(lParam));
+
+	// SampleGrabber(Filter)を生成
+	CComPtr<ISampleGrabber> grabber;
+	HRESULT hr = grabber.CoCreateInstance(CLSID_SampleGrabber);
+
+	// FilterからISampleGrabberインターフェースを取得します
+	CComQIPtr<IBaseFilter> grbFilter = grabber;
+
+	// SampleGrabberを接続するフォーマットを指定。
+	// ここがポイントです。
+	// ここの指定の仕方によりSampleGrabberの挿入箇所を決定できます。このサンプルのような指定をすると
+	// 画面出力の寸前でサンプルを取得できます。
+	m_mt.majortype = MEDIATYPE_Video;
+	m_mt.subtype = MEDIASUBTYPE_RGB24;
+	m_mt.formattype = FORMAT_VideoInfo;
+	hr = grabber->SetMediaType(&m_mt);
+
+	// GraphにSampleGrabber Filterを追加
+	hr = m_gb->AddFilter(grbFilter, L"Sample Grabber");
+
+	// CaptureGraphBuilder2というキャプチャ用GraphBuilderを生成する
+	CComPtr<ICaptureGraphBuilder2> capgb;
+	hr = capgb.CoCreateInstance(CLSID_CaptureGraphBuilder2);
+
+	// FilterGraphをセットする
+	capgb->SetFiltergraph(m_gb);
+
+	// MediaControlインターフェース取得
+	CComQIPtr<IMediaControl> ctrl = m_gb;
+
+	// EnumMonikerをResetする Resetすると、先頭から数えなおします
+	hr = m_mons->Reset();
+
+	// 最初のMonikerを取得
+	CComPtr<IMoniker> moniker;
+	ULONG nFetched = 0;
+	while ((hr = m_mons->Next(1, &moniker, &nFetched)) == S_OK) {
+		CComPtr<IPropertyBag> prop;
+		hr = moniker->BindToStorage(0, 0, IID_IPropertyBag, (void **)&prop);
+		if (SUCCEEDED(hr)) {
+			VARIANT varName;
+			VariantInit(&varName);
+			hr = prop->Read(L"FriendlyName", &varName, 0);
+			if (camname == varName.bstrVal) {
+				VariantClear(&varName);
+				break;
+			}
+
+			VariantClear(&varName);
+			moniker.Release();
+		}
+	}
+
+	// MonkierをFilterにBindする
+	CComPtr<IBaseFilter> devFilter;
+	hr = moniker->BindToObject(0, 0, IID_IBaseFilter, (void **)&devFilter);
+
+	// FilterGraphにデバイスフィルタを追加する
+	hr = m_gb->AddFilter(devFilter, L"Device Filter");
+
+	CComPtr<IBaseFilter> rndFilter;
+	hr = rndFilter.CoCreateInstance(CLSID_VideoRenderer);
+
+	hr = m_gb->AddFilter(rndFilter, L"Video Renderer");
+
+	// Graphを生成する
+	hr = capgb->RenderStream(&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video, devFilter, grbFilter, rndFilter);
+	hr = grabber->GetConnectedMediaType(&m_mt);
+	hr = grabber->SetBufferSamples(TRUE);
+	hr = grabber->SetCallback(this, 1);
+
+	CComQIPtr<IVideoWindow> win = rndFilter;
+	hr = win->put_Owner((OAHWND)m_video.m_hWnd);
+	hr = win->put_WindowStyle(WS_CHILD);
+
+	CRect rc;
+	m_video.GetClientRect(&rc);
+	//cyBorder = GetSystemMetrics(SM_CYBORDER);
+	//cy = 150 + cyBorder;
+	//rc.bottom -= cy;
+
+	hr = win->SetWindowPosition(0, 0, rc.Width(), rc.Height());
+	hr = win->put_Visible(-1);
+
+	// 再生開始
+	ctrl->Run();
+
+	return 0;
 }
 
 LRESULT CDetectionDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
@@ -274,5 +289,16 @@ void CDetectionDlg::OnShowWindow(BOOL bShow, UINT nStatus)
 	if (bShow && !m_once) {
 		m_once = true;
 		PostMessage(WM_IDEL, MAKEWPARAM(0, 0), NULL);
+	}
+}
+
+
+void CDetectionDlg::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
+{
+	__super::OnActivate(nState, pWndOther, bMinimized);
+
+	if (pWndOther == this) {
+		if (nState == WA_ACTIVE || nState == WA_CLICKACTIVE)
+			m_dlg.SetWindowPos(this, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 }
