@@ -292,7 +292,6 @@ void CDetectionDlg::OnShowWindow(BOOL bShow, UINT nStatus)
 	}
 }
 
-
 void CDetectionDlg::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
 {
 	__super::OnActivate(nState, pWndOther, bMinimized);
