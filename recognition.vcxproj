@@ -14,6 +14,7 @@
     <ProjectGuid>{49BF96D6-BBC9-4D34-8EA2-246DB598219B}</ProjectGuid>
     <RootNamespace>detection</RootNamespace>
     <Keyword>MFCProj</Keyword>
+    <ProjectName>recognition</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -107,8 +108,8 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="detection.h" />
-    <ClInclude Include="detectionDlg.h" />
+    <ClInclude Include="recognition.h" />
+    <ClInclude Include="recognitionDlg.h" />
     <ClInclude Include="infoDlg.h" />
     <ClInclude Include="qedit.h" />
     <ClInclude Include="Resource.h" />
@@ -116,8 +117,8 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="detection.cpp" />
-    <ClCompile Include="detectionDlg.cpp" />
+    <ClCompile Include="recognition.cpp" />
+    <ClCompile Include="recognitionDlg.cpp" />
     <ClCompile Include="infoDlg.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -125,20 +126,20 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="detection.rc" />
+    <ResourceCompile Include="recognition.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="res\detection.rc2" />
+    <None Include="res\recognition.rc2" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\detection.ico" />
+    <Image Include="res\recognition.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties RESOURCE_FILE="detection.rc" />
+      <UserProperties RESOURCE_FILE="" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

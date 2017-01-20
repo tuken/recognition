@@ -1,6 +1,6 @@
 #include "stdafx.h"
-#include "detection.h"
-#include "detectionDlg.h"
+#include "recognition.h"
+#include "recognitionDlg.h"
 #include "afxdialogex.h"
 #include <initguid.h>
 #include <AyonixFaceID.h>
@@ -135,7 +135,9 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 		//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces res[%d]\r\n", res);
 		//OutputDebugString(msg);
 		if (res == AYNX_OK) {
-			m_dlg.DetecttionCount(count);
+			WINDOWINFO wi = { 0 };
+			if (m_dlg.GetWindowInfo(&wi))
+				m_dlg.DetecttionCount(count);
 			//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces count[%d]\r\n", count);
 			//OutputDebugString(msg);
 
@@ -294,10 +296,15 @@ void CDetectionDlg::OnShowWindow(BOOL bShow, UINT nStatus)
 
 void CDetectionDlg::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
 {
-	__super::OnActivate(nState, pWndOther, bMinimized);
-
-	if (pWndOther == this) {
-		if (nState == WA_ACTIVE || nState == WA_CLICKACTIVE)
+	wchar_t msg[128] = { 0 };
+	_snwprintf_s<128>(msg, _TRUNCATE, L"OnActivate nState[%d] pWndOther[0x%08x] bMinimized[%s]\r\n", nState, pWndOther, (bMinimized ? L"TRUE": L"FALSE"));
+	OutputDebugString(msg);
+	if (pWndOther == this || pWndOther == NULL) {
+		if (nState == WA_ACTIVE || nState == WA_CLICKACTIVE) {
+			OutputDebugString(L"OnActivate SetWindowPos\r\n");
 			m_dlg.SetWindowPos(this, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		}
 	}
+
+	__super::OnActivate(nState, pWndOther, bMinimized);
 }

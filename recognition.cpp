@@ -1,6 +1,6 @@
 #include "stdafx.h"
-#include "detection.h"
-#include "detectionDlg.h"
+#include "recognition.h"
+#include "recognitionDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

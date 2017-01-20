@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "detection.h"
+#include "recognition.h"
 #include "infoDlg.h"
 #include "afxdialogex.h"
 
