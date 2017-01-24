@@ -108,6 +108,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FileFolderDialog.h" />
     <ClInclude Include="recognition.h" />
     <ClInclude Include="recognitionDlg.h" />
     <ClInclude Include="infoDlg.h" />
@@ -117,6 +118,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FileFolderDialog.cpp" />
     <ClCompile Include="recognition.cpp" />
     <ClCompile Include="recognitionDlg.cpp" />
     <ClCompile Include="infoDlg.cpp" />

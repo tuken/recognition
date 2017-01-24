@@ -4,6 +4,13 @@
 #include <atlbase.h>
 #include "infoDlg.h"
 
+#include <filesystem>
+#include <vector>
+#include <map>
+
+using namespace std;
+using namespace std::tr2::sys;
+
 class CDetectionDlg : public CDialogEx, ISampleGrabberCB
 {
 public:
@@ -42,6 +49,7 @@ public:
 
 	afx_msg void OnClose();
 	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
+	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
 
 protected:
 	virtual void DoDataExchange(CDataExchange *pDX);
@@ -55,6 +63,8 @@ protected:
 	AM_MEDIA_TYPE m_mt;
 
 	void *m_engine;
+	vector<wstring> m_names;
+	vector<void *> m_afids;
 	bool m_once;
 
 	virtual BOOL OnInitDialog();
@@ -64,8 +74,10 @@ protected:
 
 	void OnIdle();
 	LRESULT OnSelectCamera(WPARAM wParam, LPARAM lParam);
+	LRESULT OnDecideFolder(WPARAM wParam, LPARAM lParam);
+
+	void detect(BYTE *buf, int len);
+	void recognize(BYTE *buf, int len);
 
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-public:
-	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
 };

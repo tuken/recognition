@@ -3,7 +3,11 @@
 #include "recognitionDlg.h"
 #include "afxdialogex.h"
 #include <initguid.h>
+
 #include <AyonixFaceID.h>
+
+#include <algorithm>
+#include <functional>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -11,6 +15,7 @@
 
 #define WM_IDEL (WM_USER + 1)
 #define WM_SELECT_CAMERA (WM_APP + 1)
+#define WM_DECIDE_FOLDER (WM_APP + 2)
 
 CDetectionDlg::CDetectionDlg(CWnd* pParent /*=NULL*/)
 : CDialogEx(CDetectionDlg::IDD, pParent)
@@ -39,6 +44,7 @@ BEGIN_MESSAGE_MAP(CDetectionDlg, CDialogEx)
 	ON_WM_CLOSE()
 	ON_WM_SHOWWINDOW()
 	ON_MESSAGE(WM_SELECT_CAMERA, OnSelectCamera)
+	ON_MESSAGE(WM_DECIDE_FOLDER, OnDecideFolder)
 	ON_WM_ACTIVATE()
 END_MESSAGE_MAP()
 
@@ -123,9 +129,19 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 	memcpy(buf + sizeof(bfh), &vif->bmiHeader, sizeof(BITMAPINFOHEADER));
 	memcpy(buf + sizeof(bfh) + sizeof(BITMAPINFOHEADER), pBuffer, BufferLen);
 
+	//detect(buf, sizeof(bfh) + sizeof(BITMAPINFOHEADER) + BufferLen);
+	recognize(buf, sizeof(bfh) + sizeof(BITMAPINFOHEADER) + BufferLen);
+
+	free(buf);
+
+	return S_OK;
+}
+
+void CDetectionDlg::detect(BYTE *buf, int len)
+{
 	//wchar_t msg[128] = { 0 };
 	AynxImage *img = NULL;
-	int res = AFIDDecodeImage(buf, sizeof(bfh) + sizeof(BITMAPINFOHEADER) + BufferLen, &img);
+	int res = AFIDDecodeImage(buf, len, &img);
 	//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDecodeImage res[%d]\r\n", res);
 	//OutputDebugString(msg);
 	if (res == AYNX_OK) {
@@ -137,7 +153,7 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 		if (res == AYNX_OK) {
 			WINDOWINFO wi = { 0 };
 			if (m_dlg.GetWindowInfo(&wi))
-				m_dlg.DetecttionCount(count);
+				m_dlg.DetectionCount(count);
 			//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces count[%d]\r\n", count);
 			//OutputDebugString(msg);
 
@@ -147,16 +163,68 @@ STDMETHODIMP CDetectionDlg::BufferCB(double SampleTime, BYTE *pBuffer, long Buff
 		AFIDReleaseImage(img);
 	}
 
-	free(buf);
-
 	//DWORD nWritten;
 	//HANDLE h = CreateFile(L"result.bmp", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	//WriteFile(h, &bfh, sizeof(bfh), &nWritten, NULL);
 	//WriteFile(h, &vif->bmiHeader, sizeof(BITMAPINFOHEADER), &nWritten, NULL);
 	//WriteFile(h, pBuffer, BufferLen, &nWritten, NULL);
 	//CloseHandle(h);
+}
 
-	return S_OK;
+void CDetectionDlg::recognize(BYTE *buf, int len)
+{
+	if (m_afids.empty()) return;
+
+	//wchar_t msg[128] = { 0 };
+	AynxImage *img = NULL;
+	int res = AFIDDecodeImage(buf, len, &img);
+	//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDecodeImage res[%d]\r\n", res);
+	//OutputDebugString(msg);
+	if (res == AYNX_OK) {
+		AynxFace *faces = NULL;
+		size_t nFaces = 0;
+		res = AFIDDetectFaces(m_engine, img, &faces, &nFaces, 0);
+		//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDDetectFaces res[%d] count[%d]\r\n", res, nFaces);
+		//OutputDebugString(msg);
+		if (res == AYNX_OK) {
+			if (nFaces > 0) {
+				res = AFIDPreprocessFace(m_engine, faces);
+				//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDPreprocessFace res[%d]\r\n", res);
+				//OutputDebugString(msg);
+				if (res == AYNX_OK) {
+					if (faces[0].isValid != 0) {
+						void *afid = 0;
+						size_t afidSize = 0;
+						res = AFIDCreateAfid(m_engine, faces, &afid, &afidSize);
+						//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDCreateAfid res[%d] afidSize[%d]\r\n", res, afidSize);
+						//OutputDebugString(msg);
+						if (res == AYNX_OK) {
+							vector<float> scores(m_afids.size(), 0);
+							vector<int> indexes(m_afids.size(), 0);
+							res = AFIDMatchAfids(m_engine, afid, &(m_afids[0]), m_afids.size(), &(scores[0]), &(indexes[0]));
+							//_snwprintf_s<128>(msg, _TRUNCATE, L"AFIDMatchAfids res[%d]\r\n", res);
+							//OutputDebugString(msg);
+							if (res == AYNX_OK) {
+								vector<int>::iterator ii = indexes.begin();
+								for (vector<float>::iterator iter = scores.begin(); iter != scores.end(); iter++, ii++) {
+									//_snwprintf_s<128>(msg, _TRUNCATE, L"\t score[%.2f]\r\n", *iter);
+									//OutputDebugString(msg);
+									if (*iter > .80f)
+										m_dlg.RecognitionInfo(m_names[*ii], *iter);
+								}
+							}
+
+							AFIDReleaseAfid(afid);
+						}
+					}
+				}
+			}
+
+			AFIDReleaseFaces(faces, nFaces);
+		}
+
+		AFIDReleaseImage(img);
+	}
 }
 
 void CDetectionDlg::OnClose()
@@ -272,6 +340,95 @@ LRESULT CDetectionDlg::OnSelectCamera(WPARAM wParam, LPARAM lParam)
 
 	// 再生開始
 	ctrl->Run();
+
+	return 0;
+}
+
+LRESULT CDetectionDlg::OnDecideFolder(WPARAM wParam, LPARAM lParam)
+{
+	wchar_t *name = reinterpret_cast<wchar_t *>(wParam);
+	wchar_t *folder = reinterpret_cast<wchar_t *>(lParam);
+
+	wpath p(folder);
+	vector<wstring> failfiles;
+	for (wdirectory_iterator iter(p); iter != wdirectory_iterator(); iter++) {
+		if (is_regular_file((*iter).path())) {
+			wstring ext = (*iter).path().extension();
+			if (ext == _T(".bmp") || ext == _T(".png") || ext == _T(".gif") || ext == _T(".jpg") || ext == _T(".jp2") || ext == _T(".tiff")) {
+				AynxImage *img = NULL;
+				int ret = AFIDLoadImage((*iter).path().string().c_str(), &img);
+				if (ret != AYNX_OK) {
+					failfiles.push_back((*iter).path());
+				}
+
+				AynxFace *faces = NULL;
+				size_t nFaces = 0;
+				ret = AFIDDetectFaces(m_engine, img, &faces, &nFaces, 0);
+				if (ret != AYNX_OK) {
+					AFIDReleaseImage(img);
+					failfiles.push_back((*iter).path());
+					continue;
+				}
+
+				if (nFaces == 0) {
+					AFIDReleaseImage(img);
+					failfiles.push_back((*iter).path());
+					continue;
+				}
+
+				ret = AFIDPreprocessFace(m_engine, faces);
+				if (ret != AYNX_OK) {
+					AFIDReleaseFaces(faces, nFaces);
+					AFIDReleaseImage(img);
+					failfiles.push_back((*iter).path());
+					continue;
+				}
+
+				if (faces[0].isValid == 0) {
+					AFIDReleaseFaces(faces, nFaces);
+					AFIDReleaseImage(img);
+					failfiles.push_back((*iter).path());
+					continue;
+				}
+
+				void *afid = 0;
+				size_t afidSize = 0;
+				ret = AFIDCreateAfid(m_engine, faces, &afid, &afidSize);
+				if (ret != AYNX_OK) {
+					AFIDReleaseFaces(faces, nFaces);
+					AFIDReleaseImage(img);
+					failfiles.push_back((*iter).path());
+					continue;
+				}
+
+				AFIDReleaseFaces(faces, nFaces);
+				AFIDReleaseImage(img);
+
+				m_names.push_back(name);
+				m_afids.push_back(afid);
+			}
+		}
+		//else if (is_directory) {}
+	}
+
+	if (!failfiles.empty()) {
+		wchar_t msg[2048] = { 0 };
+		wcscpy_s<2048>(msg, L"以下の画像は読み込めませんでした\r\n");
+		for (vector<wstring>::iterator i = failfiles.begin(); i != failfiles.end(); i++) {
+			wcscat_s<2048>(msg, i->c_str());
+			wcscat_s<2048>(msg, L"\r\n");
+		}
+
+		MessageBox(msg);
+	}
+
+	if (m_afids.empty())
+		MessageBox(_T("選択したフォルダーには画像はありません"));
+	else {
+		CString item;
+		item.Format(_T("%s (%d枚)"), name, m_afids.size());
+		m_dlg.SetImageList(item);
+	}
 
 	return 0;
 }
